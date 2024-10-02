@@ -32,6 +32,7 @@ Please note, this is part of ongoing research and exploration, aimed at highligh
 
 An overview of the finetuned models and benchmarking results are shared at [Link](TODO Link to Blogposts)
 
+
 <!-- - **Developed by:** [More Information Needed]
 - **Funded by [optional]:** [More Information Needed]
 - **Shared by [optional]:** [More Information Needed]
@@ -92,28 +93,61 @@ Use the code below to get started with the model.
 
 [More Information Needed] -->
 
-<!-- ## Training Details
+ ## Training Details
 
-### Training Data -->
+<!-- ### Training Data --> 
 
 <!-- This should link to a Dataset Card, perhaps with a short stub of information on what the training data is all about as well as documentation related to data pre-processing or additional filtering. -->
 
-<!-- [More Information Needed]
+<!-- [More Information Needed]-->
 
-### Training Procedure -->
+### Training Procedure
 
 <!-- This relates heavily to the Technical Specifications. Content here should link to that section when it is relevant to the training procedure. -->
+Used RunPod with following setup:
+
+* 1 x A100 PCIe
+* 31 vCPU 117 GB RAM
+* runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
+* On-Demand - Secure Cloud
+* 60 GB Disk
+* 60 GB Pod Volume
+* ~16 hours
+* $30
 
 <!-- #### Preprocessing [optional]
 
 [More Information Needed]
  -->
 
-<!-- #### Training Hyperparameters
+#### Training Hyperparameters
 
-- **Training regime:** [More Information Needed] -->
+<!-- - **Training regime:** -->
 <!--fp32, fp16 mixed precision, bf16 mixed precision, bf16 non-mixed precision, fp16 non-mixed precision, fp8 mixed precision -->
-
+* lora_config = LoraConfig(
+    r=64,
+    lora_alpha=64,
+    target_modules=target_modules,
+    lora_dropout=0.05,
+    bias="none",
+    task_type="CAUSAL_LM",
+)
+* sft_config = SFTConfig(
+    dataset_text_field=dataset_text_field,
+    per_device_train_batch_size=4,
+    gradient_accumulation_steps=8,
+    dataset_num_proc=16,
+    max_seq_length=1600,
+    logging_dir="./logs",
+    num_train_epochs=1,
+    learning_rate=2e-5,
+    save_steps=5,
+    save_total_limit=1,
+    logging_steps=5,
+    output_dir="outputs",
+    optim="paged_adamw_8bit",
+    save_strategy="steps",
+)
 <!-- #### Speeds, Sizes, Times [optional] -->
 
 <!-- This section provides information about throughput, start/end time, checkpoint size if relevant, etc. -->
