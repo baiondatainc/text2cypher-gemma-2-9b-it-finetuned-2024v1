@@ -112,8 +112,8 @@ Used RunPod with following setup:
 * On-Demand - Secure Cloud
 * 60 GB Disk
 * 60 GB Pod Volume
-* ~16 hours
-* $30
+<!-- * ~16 hours
+* $30 -->
 
 <!-- #### Preprocessing [optional]
 
