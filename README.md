@@ -148,6 +148,13 @@ Used RunPod with following setup:
     optim="paged_adamw_8bit",
     save_strategy="steps",
 )
+<!-- TODO Check if this config is used 
+  bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_use_double_quant=True,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_compute_dtype=torch.bfloat16,
+) -->
 <!-- #### Speeds, Sizes, Times [optional] -->
 
 <!-- This section provides information about throughput, start/end time, checkpoint size if relevant, etc. -->
