@@ -148,13 +148,12 @@ Used RunPod with following setup:
     optim="paged_adamw_8bit",
     save_strategy="steps",
 )
-<!-- TODO Check if this config is used 
-  bnb_config = BitsAndBytesConfig(
+bnb_config = BitsAndBytesConfig(
     load_in_4bit=True,
     bnb_4bit_use_double_quant=True,
     bnb_4bit_quant_type="nf4",
     bnb_4bit_compute_dtype=torch.bfloat16,
-) -->
+)
 <!-- #### Speeds, Sizes, Times [optional] -->
 
 <!-- This section provides information about throughput, start/end time, checkpoint size if relevant, etc. -->
@@ -269,13 +268,17 @@ import torch
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
+    BitsAndBytesConfig,
 )
+
 
 instruction = (
     "Generate Cypher statement to query a graph database. "
     "Use only the provided relationship types and properties in the schema. \n"
     "Schema: {schema} \n Question: {question}  \n Cypher output: "
 )
+
+
 
 def prepare_chat_prompt(question, schema) -> list[dict]:
     chat = [
@@ -301,17 +304,26 @@ def _postprocess_output_cypher(output_cypher: str) -> str:
     return output_cypher
 
 # Model
-base_model_name = "google/gemma-2-9b-it"
 model_name = "neo4j/text2cypher-gemma-2-9b-it-finetuned-2024v1"
-base_model = AutoModelForCausalLM.from_pretrained(base_model_name)
-config = PeftConfig.from_pretrained(model_name)
-model = PeftModel.from_pretrained(base_model, model_name)
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_use_double_quant=True,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_compute_dtype=torch.bfloat16,
+)
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForCausalLM.from_pretrained(
+    model_name,
+    quantization_config=bnb_config,
+    torch_dtype=torch.bfloat16,
+    attn_implementation="eager",
+    low_cpu_mem_usage=True,
+)
 
 # Question
 question = "What are the movies of Tom Hanks?"
 schema = "(:Actor)-[:ActedIn]->(:Movie)"
 new_message = prepare_chat_prompt(question=question, schema=schema)
-tokenizer = AutoTokenizer.from_pretrained(model_name)
 prompt = tokenizer.apply_chat_template(new_message, add_generation_prompt=True, tokenize=False)
 inputs = tokenizer(prompt, return_tensors="pt", padding=True)
 
@@ -333,5 +345,5 @@ with torch.no_grad():
     outputs = [_postprocess_output_cypher(output) for output in raw_outputs]
     
 print(outputs)
-> ["MATCH (hanks:Actor {name: 'Tom Hanks'})-[:ActedIn]->(m:Movie) RETURN m"]
+> ["MATCH (a:Actor {Name: 'Tom Hanks'})-[:ActedIn]->(m:Movie) RETURN m"]
 ```
