@@ -24,13 +24,13 @@ tags:
 ### Model Description
 
 This model serves as a demonstration of how fine-tuning foundational models using the Neo4j-Text2Cypher(2024) Dataset ([link](https://huggingface.co/datasets/neo4j/text2cypher-2024v1)) can enhance performance on the Text2Cypher task.\
-Please note, this is part of ongoing research and exploration, aimed at highlighting the dataset's potential rather than a production-ready solution.
+Please **note**, this is part of ongoing research and exploration, aimed at highlighting the dataset's potential rather than a production-ready solution.
 
 
 **Base model:** google/gemma-2-9b-it \
 **Dataset:** neo4j/text2cypher-2024v1
 
-An overview of the finetuned models and benchmarking results are shared at [Link](TODO Link to Blogposts)
+An overview of the finetuned models and benchmarking results are shared at [Link1](https://medium.com/p/d77be96ab65a) and [Link2](https://medium.com/p/b2203d1173b0)
 
 
 <!-- - **Developed by:** [More Information Needed]
@@ -79,7 +79,7 @@ We need to be cautious about a few risks:
 * In our evaluation setup, the training and test sets come from the same data distribution (sampled from a larger dataset). If the data distribution changes, the results may not follow the same pattern.
 * The datasets used were gathered from publicly available sources. Over time, foundational models may access both the training and test sets, potentially achieving similar or even better results.
 
-Also check the related blogpost:[Link](TODO Link to Blogposts)
+Also check the related blogpost:[Link](Thttps://medium.com/p/b2203d1173b0)
 
 <!-- ### Recommendations -->
 
