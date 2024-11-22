@@ -18,7 +18,6 @@ tags:
 <!-- Provide a quick summary of what the model is/does. -->
 
 
-
 ## Model Details
 
 ### Model Description
@@ -31,6 +30,8 @@ Please **note**, this is part of ongoing research and exploration, aimed at high
 **Dataset:** neo4j/text2cypher-2024v1
 
 An overview of the finetuned models and benchmarking results are shared at [Link1](https://medium.com/p/d77be96ab65a) and [Link2](https://medium.com/p/b2203d1173b0)
+
+Have ideas or insights? Contact us: [Neo4j/Team-GenAI](mailto:team-gen-ai@neo4j.com)
 
 
 <!-- - **Developed by:** [More Information Needed]
