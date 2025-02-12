@@ -323,7 +323,7 @@ model = AutoModelForCausalLM.from_pretrained(
 
 # Question
 question = "What are the movies of Tom Hanks?"
-schema = "(:Actor)-[:ActedIn]->(:Movie)"
+schema = "(:Actor)-[:ActedIn]->(:Movie)" # Check the NOTE below on creating your own schemas
 new_message = prepare_chat_prompt(question=question, schema=schema)
 prompt = tokenizer.apply_chat_template(new_message, add_generation_prompt=True, tokenize=False)
 inputs = tokenizer(prompt, return_tensors="pt", padding=True)
@@ -348,3 +348,9 @@ with torch.no_grad():
 print(outputs)
 > ["MATCH (a:Actor {Name: 'Tom Hanks'})-[:ActedIn]->(m:Movie) RETURN m"]
 ```
+
+# NOTE on creating your own schemas: 
+* In the dataset we used the schemas are already provided. They are created either by
+   * Directly using the schema the inout data source provided  OR
+   * Creating schema using neo4j-graphrag package (Check: SchemaReader.get_schema(...) function)
+* In your own Neo4j database, you can utilize **neo4j-graphrag package::SchemaReader.get_schema(...) function
