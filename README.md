@@ -350,7 +350,7 @@ print(outputs)
 ```
 
 # NOTE on creating your own schemas: 
-* In the dataset we used the schemas are already provided. They are created either by
-   * Directly using the schema the inout data source provided  OR
+* In the dataset we used, the schemas are already provided. They are created either by
+   * Directly using the schema the input data source provided  OR
    * Creating schema using neo4j-graphrag package (Check: SchemaReader.get_schema(...) function)
-* In your own Neo4j database, you can utilize **neo4j-graphrag package::SchemaReader.get_schema(...) function
+* In your own Neo4j database, you can utilize `neo4j-graphrag package::SchemaReader` functions
