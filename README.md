@@ -1,7 +1,6 @@
 ---
 base_model: google/gemma-2-9b-it
 library_name: peft
-license: apache-2.0
 datasets:
 - neo4j/text2cypher-2024v1
 language:
