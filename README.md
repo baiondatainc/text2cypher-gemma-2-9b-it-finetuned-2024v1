@@ -355,7 +355,13 @@ print(outputs)
    * Creating schema using neo4j-graphrag package (Check: SchemaReader.get_schema(...) function)
 * In your own Neo4j database, you can utilize `neo4j-graphrag package::SchemaReader` functions
 
-## License
 
-This model uses or builds upon components released under the Gemma License.  
-A full copy of the license is included [here](./GEMMA_LICENSE).
+## Licensing and Use
+
+This model is a fine-tuned derivative of the Gemma base model. It is governed by the [Gemma Terms of Use](https://ai.google.dev/gemma/terms), including restrictions such as:
+
+- Non-commercial use only
+- No sublicensing
+- Compliance with applicable laws and regulations
+
+See the included `GEMMA_LICENSE` and `NOTICE` files for full details.
