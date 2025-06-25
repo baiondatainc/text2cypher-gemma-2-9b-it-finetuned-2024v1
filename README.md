@@ -356,5 +356,5 @@ print(outputs)
 
 ## License
 
-This project includes components governed by the Gemma License.  
-See [GEMMA_LICENSE](./GEMMA_LICENSE) for full terms.
+This model uses or builds upon components released under the Gemma License.  
+A full copy of the license is included [here](./GEMMA_LICENSE).
