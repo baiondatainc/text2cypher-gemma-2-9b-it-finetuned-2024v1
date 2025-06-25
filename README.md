@@ -10,6 +10,7 @@ tags:
 - neo4j
 - cypher
 - text2cypher
+license: gemma
 ---
 
 # Model Card for Model ID
