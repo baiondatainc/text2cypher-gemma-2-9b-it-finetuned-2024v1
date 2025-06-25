@@ -353,3 +353,8 @@ print(outputs)
    * Directly using the schema the input data source provided  OR
    * Creating schema using neo4j-graphrag package (Check: SchemaReader.get_schema(...) function)
 * In your own Neo4j database, you can utilize `neo4j-graphrag package::SchemaReader` functions
+
+## License
+
+This project includes components governed by the Gemma License.  
+See [GEMMA_LICENSE](./GEMMA_LICENSE) for full terms.
