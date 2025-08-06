@@ -5,7 +5,7 @@ datasets:
 - neo4j/text2cypher-2024v1
 language:
 - en
-pipeline_tag: text2text-generation
+pipeline_tag: text-generation
 tags:
 - neo4j
 - cypher
