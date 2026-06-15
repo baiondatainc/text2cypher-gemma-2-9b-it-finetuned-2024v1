@@ -1,0 +1,1 @@
+ollama create text2cypher-llama -f Modelfile.rp-llama
