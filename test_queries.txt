@@ -1,0 +1,15 @@
+How many patients are there?
+Total bad debt by state
+Patients born by month
+Top 10 practices by patient count
+Patients with outstanding balance over 5000 in Atlanta
+Average charge amount by diagnosis code, top 20
+Visits per location for the top 5 practices
+Self-pay patients with no insurance and outstanding balance
+Patients who received statements but never made a transaction
+Count of patients per propensity grade
+Total revenue by procedure code this year
+Patients who called IVR more than 3 times
+Practices with the highest bad debt ratio
+Patients with multiple practices and high outstanding balance
+Top 5 diagnosis codes by total charges
