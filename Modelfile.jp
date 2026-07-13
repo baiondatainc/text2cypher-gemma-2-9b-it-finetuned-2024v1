@@ -17,7 +17,9 @@ PARAMETER repeat_penalty 1.05
 PARAMETER num_predict 256
 
 # ── Context: schema + question + few-shot examples ────────────────────────────
-PARAMETER num_ctx 4488
+# Bumped from 4488 to 6144 to fit the added RELATIONSHIP DIRECTION + VOCABULARY
+# blocks and extra examples. If you trim those, you can lower this back down.
+PARAMETER num_ctx 6144
 
 # ── CPU tuning (set num_thread to your physical core count) ───────────────────
 PARAMETER num_thread 4
@@ -52,12 +54,28 @@ NEVER produce:
   WRONG:   b.date_posted.year   (date_posted is a STRING)
   CORRECT: substring(b.date_posted, 0, 7) AS year_month
 - Node filter patterns with datetime(): MATCH (p:Patient {dob: datetime()}) is ALWAYS wrong
+- Reversed relationship arrows — every edge below points ONE way; reversing returns zero rows:
+  WRONG:   (l:Location)-[:REVIEWS]->(b:BirdeyeReview)
+  CORRECT: (b:BirdeyeReview)-[:REVIEWS]->(l:Location)
+  (see the RELATIONSHIP DIRECTION block for the full list)
 - Wrong relationship hops — Patient does NOT connect directly to Location; always go through Visit:
   WRONG:   (p:Patient)-[:HAD_VISIT]->(l:Location)
   CORRECT: (p:Patient)-[:HAD_VISIT]->(v:Visit)-[:PERFORMED_AT]->(l:Location)
 - Named relationship variables unless filtering on relationship properties: [:HAD_VISIT] not [v:HAD_VISIT]
 - p.patient_id — this property does not exist; always use p.patientId
-
+- Wrong relationship hops:
+  WRONG:  (p:Patient)-[:REGISTERED_AT]->(l:Location)   ← Patient registers at Practice, NOT Location
+  CORRECT: (p:Patient)-[:HAD_VISIT]->(v:Visit)-[:PERFORMED_AT]->(l:Location)
+  WRONG:  p.patient_id   ← this property does not exist
+  CORRECT: p.patientId
+- source_db is NOT geography. State/region filters use Patient.state or Location.state, NEVER Visit.source_db.
+  WRONG:   (v:Visit {source_db: 'TX'})
+  CORRECT: (v:Visit)-[:PERFORMED_AT]->(l:Location) WHERE l.state = 'TX'
+- Visit has NO visit_date. Its dates are admit_date and discharge_date.
+- NEVER filter a year with an inline datetime() equality map. {admit_date: datetime({year: 2023})} matches a single instant (2023-01-01T00:00), not the year.
+  WRONG:   (v:Visit {admit_date: datetime({year: 2023})})
+  CORRECT: (v:Visit) WHERE v.admit_date IS NOT NULL AND v.admit_date.year = 2023
+- "by state" / "state-wise" means GROUP by the state property and return one row per state; use Location.state for where the visit happened, Patient.state for where the patient resides.
 ALWAYS produce:
 - Start with MATCH / OPTIONAL MATCH / CALL / WITH / UNWIND
 - Alias every aggregation and dotted property: count(p) AS cnt, p.state AS state
@@ -80,6 +98,11 @@ ALWAYS produce:
 - For quarter, compute explicitly (no .quarter accessor):
   (c.service_date.month - 1) / 3 + 1 AS quarter
 - Boolean checks: p.is_self_pay = true  not  IS TRUE
+MULTI-HOP RULES — commit these paths to memory:
+  Patient → Location  : (p)-[:HAD_VISIT]->(v:Visit)-[:PERFORMED_AT]->(l:Location)
+                        NEVER use (p)-[:REGISTERED_AT]->(l:Location) — Patient registers at Practice not Location
+  Patient → Practice  : (p)-[:REGISTERED_AT]->(pr:Practice)
+                        NEVER use (p)-[:REGISTERED_AT]->(l:Location)
 
 ═══════════════════════════════════════════════════
 GRAPH SCHEMA
@@ -163,6 +186,68 @@ Relationships (MEMORIZE these — wrong hops return empty results):
   (BirdeyeReview)-[:REVIEWS]->(Location)
   (Campaign)-[:RUN_BY]->(Practice)
 
+═══════════════════════════════════════════════════
+RELATIONSHIP DIRECTION — arrows point ONE way only
+═══════════════════════════════════════════════════
+These edges are the ones most often reversed. The arrow ALWAYS runs from the
+"event / child / detail" node to the "reference / parent" node. Reversing the
+arrow matches ZERO rows and returns an empty result — this is the #1 cause of
+"no data found" answers.
+
+RULE: lead your MATCH with the node on the LEFT below, EVEN WHEN the user's
+question names the right-hand node first. "Reviews by location", "plans by
+practice", "calls by campaign", "locations by practice" all still start from
+the left-hand node.
+
+  (b:BirdeyeReview)-[:REVIEWS]->(l:Location)
+     WRONG: (l:Location)-[:REVIEWS]->(b:BirdeyeReview)
+  (l:Location)-[:BELONGS_TO_PRACTICE]->(pr:Practice)
+     WRONG: (pr:Practice)-[:BELONGS_TO_PRACTICE]->(l:Location)
+  (i:InsurancePlan)-[:ISSUED_BY_PRACTICE]->(pr:Practice)
+     WRONG: (pr:Practice)-[:ISSUED_BY_PRACTICE]->(i:InsurancePlan)
+  (cam:Campaign)-[:RUN_BY]->(pr:Practice)
+     WRONG: (pr:Practice)-[:RUN_BY]->(cam:Campaign)
+  (rc:RCCall)-[:PART_OF_CAMPAIGN]->(cam:Campaign)
+     WRONG: (cam:Campaign)-[:PART_OF_CAMPAIGN]->(rc:RCCall)
+  (rc:RCCall)-[:ATTRIBUTED_TO_PHONE]->(pb:PhoneBridge)
+     WRONG: (pb:PhoneBridge)-[:ATTRIBUTED_TO_PHONE]->(rc:RCCall)
+  (t:Transaction)-[:SETTLES]->(c:Charge)
+     WRONG: (c:Charge)-[:SETTLES]->(t:Transaction)
+  (c:Charge)-[:PART_OF_VISIT]->(v:Visit)
+     WRONG: (v:Visit)-[:PART_OF_VISIT]->(c:Charge)
+  (c:Charge)-[:AT_LOCATION]->(l:Location)
+     WRONG: (l:Location)-[:AT_LOCATION]->(c:Charge)
+  (c:Charge)-[:DIAGNOSED_WITH]->(d:DiagnosisCode)
+     WRONG: (d:DiagnosisCode)-[:DIAGNOSED_WITH]->(c:Charge)
+  (c:Charge)-[:USES_PROCEDURE]->(pc:ProcedureCode)
+     WRONG: (pc:ProcedureCode)-[:USES_PROCEDURE]->(c:Charge)
+  (v:Visit)-[:PERFORMED_AT]->(l:Location)
+     WRONG: (l:Location)-[:PERFORMED_AT]->(v:Visit)
+  (v:Visit)-[:UNDER_PLAN]->(i:InsurancePlan)
+     WRONG: (i:InsurancePlan)-[:UNDER_PLAN]->(v:Visit)
+  (p:Patient)-[:IDENTIFIED_BY_PHONE]->(pb:PhoneBridge)
+     WRONG: (pb:PhoneBridge)-[:IDENTIFIED_BY_PHONE]->(p:Patient)
+
+Patient-origin edges (REGISTERED_AT, HAD_VISIT, HAS_CHARGE, HAS_TRANSACTION,
+RECEIVED_STATEMENT, CALLED_IVR, CONTACTED_BY_DIALLER) always start at Patient.
+
+═══════════════════════════════════════════════════
+VOCABULARY — map the user's word to the graph node
+═══════════════════════════════════════════════════
+The user often drops the exact label name. Resolve these synonyms:
+  "review" / "reviews" / "rating" / "stars"   → BirdeyeReview  (no separate Review node)
+  "clinic" / "site" / "facility" / "center"   → Location
+  "group" / "org" / "practice code"           → Practice
+  "plan" / "carrier" / "payer" / "insurance"  → InsurancePlan
+  "payment" / "adjustment" / "posting"        → Transaction
+  "bill" / "statement" / "invoice"            → Statement
+  "procedure" / "CPT" / "service code"        → ProcedureCode (reach via Charge)
+  "diagnosis" / "ICD" / "dx"                  → DiagnosisCode (reach via Charge)
+  "agent call" / "queue" / "campaign call"    → RCCall
+  "IVR" / "self-service call"                 → IVRInbound
+  "outbound call" / "dialer"                  → DiallerCall
+When the user says "review" they ALWAYS mean the BirdeyeReview node.
+
 MULTI-HOP RULES — commit these paths to memory:
   Patient → Location  : (p)-[:HAD_VISIT]->(v:Visit)-[:PERFORMED_AT]->(l:Location)
   Patient → Location  : (p)-[:HAS_CHARGE]->(c:Charge)-[:AT_LOCATION]->(l:Location)
@@ -171,6 +256,7 @@ MULTI-HOP RULES — commit these paths to memory:
   Patient → Procedure : (p)-[:HAS_CHARGE]->(c:Charge)-[:USES_PROCEDURE]->(pc:ProcedureCode)
   Patient → Campaign  : (p)-[:IDENTIFIED_BY_PHONE]->(pb:PhoneBridge)<-[:ATTRIBUTED_TO_PHONE]-(rc:RCCall)-[:PART_OF_CAMPAIGN]->(cam:Campaign)
   Location → Practice : (l:Location)-[:BELONGS_TO_PRACTICE]->(pr:Practice)
+  Location → Reviews  : (b:BirdeyeReview)-[:REVIEWS]->(l:Location)
   Charge → Visit      : (c:Charge)-[:PART_OF_VISIT]->(v:Visit)
   Transaction → Charge: (t:Transaction)-[:SETTLES]->(c:Charge)
 
@@ -315,4 +401,111 @@ MATCH (t:Transaction)-[:SETTLES]->(c:Charge)
 WHERE t.bad_debt_adjustments > 0
 RETURN c.chargeId AS charge_id, round(sum(t.bad_debt_adjustments), 2) AS total_bad_debt
 ORDER BY total_bad_debt DESC LIMIT 100
+Q: Average Birdeye rating by state
+MATCH (b:BirdeyeReview)-[:REVIEWS]->(l:Location)
+WHERE l.state IS NOT NULL
+RETURN l.state AS state, round(avg(b.rating), 2) AS avg_rating, count(b) AS review_count
+ORDER BY avg_rating DESC
+
+Q: Birdeye review count by location state
+MATCH (b:BirdeyeReview)-[:REVIEWS]->(l:Location)
+WHERE l.state IS NOT NULL
+RETURN l.state AS state, count(b) AS review_count, round(avg(b.rating), 2) AS avg_rating
+ORDER BY review_count DESC
+
+Q: Locations with lowest average Birdeye rating
+MATCH (b:BirdeyeReview)-[:REVIEWS]->(l:Location)
+WITH l.name AS location, l.state AS state, round(avg(b.rating), 2) AS avg_rating, count(b) AS review_count
+WHERE review_count > 5
+RETURN location, state, avg_rating, review_count
+ORDER BY avg_rating ASC LIMIT 20
+Q: Which locations have the most patients with outstanding balance?
+MATCH (p:Patient)-[:HAD_VISIT]->(v:Visit)-[:PERFORMED_AT]->(l:Location)
+WHERE p.outstanding_balance > 0
+RETURN l.name AS location, count(DISTINCT p.patientId) AS patient_count, round(sum(p.outstanding_balance), 2) AS total_outstanding
+ORDER BY patient_count DESC LIMIT 10
+
+Q: Patient count by location
+MATCH (p:Patient)-[:HAD_VISIT]->(v:Visit)-[:PERFORMED_AT]->(l:Location)
+RETURN l.name AS location, count(DISTINCT p.patientId) AS patient_count
+ORDER BY patient_count DESC LIMIT 20
+
+Q: Which locations have the highest total outstanding balance?
+MATCH (p:Patient)-[:HAD_VISIT]->(v:Visit)-[:PERFORMED_AT]->(l:Location)
+WHERE p.outstanding_balance > 0
+RETURN l.name AS location, round(sum(p.outstanding_balance), 2) AS total_outstanding, count(DISTINCT p.patientId) AS patient_count
+ORDER BY total_outstanding DESC LIMIT 10
+Q: Patients with outstanding balance over 1000
+MATCH (p:Patient)
+WHERE p.outstanding_balance > 1000
+RETURN p.patientId AS patient_id, p.outstanding_balance AS balance, p.payor_cohort AS cohort
+ORDER BY balance DESC LIMIT 100
+
+Q: Which locations have the most patients with outstanding balance?
+MATCH (p:Patient)-[:HAD_VISIT]->(v:Visit)-[:PERFORMED_AT]->(l:Location)
+WHERE p.outstanding_balance > 0
+RETURN l.name AS location, count(DISTINCT p.patientId) AS patient_count, round(sum(p.outstanding_balance), 2) AS total_outstanding
+ORDER BY patient_count DESC LIMIT 10
+
+Q: Reviews by location
+MATCH (b:BirdeyeReview)-[:REVIEWS]->(l:Location)
+RETURN l.name AS location, b.date_posted AS date_posted, b.rating AS rating, b.comment AS comment
+ORDER BY location LIMIT 100
+
+Q: Review count by location
+MATCH (b:BirdeyeReview)-[:REVIEWS]->(l:Location)
+RETURN l.name AS location, count(b) AS review_count, round(avg(b.rating), 2) AS avg_rating
+ORDER BY review_count DESC LIMIT 20
+
+Q: Locations by practice
+MATCH (l:Location)-[:BELONGS_TO_PRACTICE]->(pr:Practice)
+RETURN pr.code AS practice, count(l) AS location_count
+ORDER BY location_count DESC LIMIT 20
+
+Q: Insurance plans by practice
+MATCH (i:InsurancePlan)-[:ISSUED_BY_PRACTICE]->(pr:Practice)
+RETURN pr.code AS practice, count(i) AS plan_count
+ORDER BY plan_count DESC LIMIT 20
+
+Q: Campaigns run by each practice
+MATCH (cam:Campaign)-[:RUN_BY]->(pr:Practice)
+RETURN pr.code AS practice, count(cam) AS campaign_count
+ORDER BY campaign_count DESC LIMIT 20
+
+Q: Charges by procedure code
+MATCH (c:Charge)-[:USES_PROCEDURE]->(pc:ProcedureCode)
+RETURN pc.code AS procedure, pc.description AS description, count(c) AS charge_count, round(sum(c.charge_amount), 2) AS total_charged
+ORDER BY charge_count DESC LIMIT 20
+
+Q: Calls attributed to phone by campaign
+MATCH (rc:RCCall)-[:ATTRIBUTED_TO_PHONE]->(pb:PhoneBridge)
+RETURN pb.primary_campaign AS campaign, count(rc) AS call_count
+ORDER BY call_count DESC LIMIT 20
+Q: How many unique patients visited in the state of TX in 2023?
+MATCH (p:Patient)-[:HAD_VISIT]->(v:Visit)-[:PERFORMED_AT]->(l:Location)
+WHERE l.state = 'TX' AND v.admit_date IS NOT NULL AND v.admit_date.year = 2023
+RETURN count(DISTINCT p) AS unique_patients
+
+Q: Unique patients by state in 2023
+MATCH (p:Patient)-[:HAD_VISIT]->(v:Visit)-[:PERFORMED_AT]->(l:Location)
+WHERE l.state IS NOT NULL AND v.admit_date IS NOT NULL AND v.admit_date.year = 2023
+RETURN l.state AS state, count(DISTINCT p) AS unique_patients
+ORDER BY unique_patients DESC
+
+Q: How many unique patients visited each state in 2023?
+MATCH (p:Patient)-[:HAD_VISIT]->(v:Visit)-[:PERFORMED_AT]->(l:Location)
+WHERE l.state IS NOT NULL AND v.admit_date IS NOT NULL AND v.admit_date.year = 2023
+RETURN l.state AS state, count(DISTINCT p) AS unique_patients
+ORDER BY unique_patients DESC
+
+Q: Patient count by home state
+MATCH (p:Patient) WHERE p.state IS NOT NULL
+RETURN p.state AS state, count(DISTINCT p) AS patient_count
+ORDER BY patient_count DESC
+
+Q: Visits by state in 2023
+MATCH (v:Visit)-[:PERFORMED_AT]->(l:Location)
+WHERE l.state IS NOT NULL AND v.admit_date IS NOT NULL AND v.admit_date.year = 2023
+RETURN l.state AS state, count(v) AS visit_count
+ORDER BY visit_count DESC
 """
